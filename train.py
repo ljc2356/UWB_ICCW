@@ -58,9 +58,9 @@ dataloader_test = DataLoader(
 Enc = Encoder().to(device)
 Dec = Decoder().to(device)
 
-    #load from history
-# Enc.load_state_dict(torch.load(os.path.join(modelPath,EncFileName)))
-# Dec.load_state_dict(torch.load(os.path.join(modelPath,DecFileName)))
+    # load from history
+Enc.load_state_dict(torch.load(os.path.join(modelPath,EncFileName)))
+Dec.load_state_dict(torch.load(os.path.join(modelPath,DecFileName)))
 
 optimizer = torch.optim.Adam(
     itertools.chain(Enc.parameters(),Dec.parameters()),
