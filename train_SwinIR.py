@@ -14,10 +14,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 #%% init paremeters
 dataset_folders = '../DataBase/20210820_ICCW/'
-modelPath =  './resultModel/V2_1213/'
+modelPath =  './resultModel/V2.1_1214/'
 modelFileName = "EncDec.pth"
-writer = SummaryWriter(log_dir="./logs/V2_1213")
+writer = SummaryWriter(log_dir="./logs/V2.1_1214")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+is_attention = True
 LossFun = torch.nn.L1Loss().to(device)
 num_epochs = 2000
 loss_test_mat = np.zeros(shape=(num_epochs,1))
@@ -54,11 +55,14 @@ dataloader_test = DataLoader(
 )
 
 #%% init Model and optimizers
-EncDec = UWBSwinIR().to(device)
+if is_attention == True:
+    EncDec = UWBSwinIR(is_attention=True).to(device)
+else:
+    EncDec = UWBSwinIR(is_attention=False).to(device)
+
 
 #     # load from history
-# Enc.load_state_dict(torch.load(os.path.join(modelPath,EncFileName)))
-# Dec.load_state_dict(torch.load(os.path.join(modelPath,DecFileName)))
+# EncDec.load_state_dict(torch.load(os.path.join(modelPath,modelFileName)))
 
 optimizer = torch.optim.Adam(
     params = EncDec.parameters(),
@@ -80,7 +84,12 @@ for epoch in range(num_epochs):
 
         #start training
         optimizer.zero_grad()
-        reconCSIBatch = EncDec(oriCSIBatch)
+        if is_attention == True:
+            reconCSIBatch, reconCSIBatchWeight = EncDec(oriCSIBatch)
+        else:
+            reconCSIBatch = EncDec(oriCSIBatch)
+
+
 
         #compute loss
         loss2Self = amplitudeLoss(reconCSIBatch,oriCSIBatch,LossFun) \
@@ -116,7 +125,11 @@ for epoch in range(num_epochs):
                 labelCSITestBatch = labelCSITestBatch.cuda()
 
             #testing
-            reconCSITestBatch = EncDec(oriCSITestBatch)
+            if is_attention == True:
+                reconCSITestBatch, reconCSITestBatchWeight = EncDec(oriCSITestBatch)
+            else:
+                reconCSITestBatch = EncDec(oriCSITestBatch)
+
             #compute test loss
             loss2SelfTest = amplitudeLoss(reconCSITestBatch,oriCSITestBatch,LossFun) \
                             + pdoaLoss(reconCSITestBatch,oriCSITestBatch,LossFun)
@@ -134,7 +147,6 @@ for epoch in range(num_epochs):
     writer.add_scalar(tag="lossTest",scalar_value=lossSumTestBatchs,global_step=epoch)
 
     #save model
-    loss_test_mat[epoch,0] = lossSumTestBatchs
     loss_test_mat[epoch,0] = lossSumTestBatchs
     # if (epoch > 1) & (loss_test_mat[epoch,0]<loss_test_mat[epoch-1,0]):
     torch.save(EncDec.state_dict(),os.path.join(modelPath,modelFileName))

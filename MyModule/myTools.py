@@ -40,24 +40,35 @@ def AOAcal(Pdoa,fs = 0.001,fc = 3.9936e+9,c = 299792458,radius = 0.0732,low_thre
     return theta_est
 
 
-def MUSIC(CSI,fc = 3.9936e+9,c = 299792458,radius = 0.0732,low_threshold = -1*math.pi,high_threshold = math.pi):
+def MUSIC(CSI,Weight = None,fc = 3.9936e+9,c = 299792458,radius = 0.0732,low_threshold = -1*math.pi,high_threshold = math.pi):
     pi = math.pi
-    realCSI = CSI[:,0,:,:].cpu().numpy()
-    imagCSI = CSI[:,1,:,:].cpu().numpy()
+    realCSI = CSI[:,0,:,:].cpu().detach().numpy()
+    imagCSI = CSI[:,1,:,:].cpu().detach().numpy()
     npCSI = np.array(realCSI + 1j * imagCSI)   #clear
     R = np.array(np.zeros(shape=(npCSI.shape[0],8,8)),dtype='complex64')
     estAngle = np.zeros((npCSI.shape[0]))
+    maxPath = 30
+
+    if Weight == None:  #if Weight equals None,no attention
+        flagIndex = np.zeros(shape=(npCSI.shape[0],50))
+        flagIndex[:,0:maxPath] = 1
+    else:
+        Weight = Weight.cpu().detach().numpy()
+        for dataIndex in range(npCSI.shape[0]):
+            Weight[dataIndex,:] = Weight[dataIndex,:] / np.max(Weight[dataIndex,:])
+        flagIndex = np.zeros(Weight.shape)
+        flagIndex[np.where(Weight>0.7)] += 1    #recongnize los path
 
     for dataIndex in range(npCSI.shape[0]):
-        for freIndex in range(10):
+        for freIndex in range(maxPath):
             R[dataIndex,0:8,0:8] = R[dataIndex,0:8,0:8] \
-                                   + np.matmul(
+                                   + flagIndex[dataIndex,freIndex] * np.matmul(
                 npCSI[dataIndex,:,freIndex].reshape(8,1),
                 npCSI[dataIndex,:,freIndex].reshape(8,1).conj().T
             )
         U,S,Vh = np.linalg.svd(R[dataIndex,:,:])
         En = U[:,1:]
-        theta = np.array(np.arange(start=-1 * pi,stop = pi,step = 0.1))
+        theta = np.array(np.arange(start=-1 * pi,stop = pi,step = 0.01))
         A = sterrArray(theta)
         Pmu = 1./np.diag(A.conj().T @ En @ En.conj().T @ A)
         Pmu = np.abs(Pmu)

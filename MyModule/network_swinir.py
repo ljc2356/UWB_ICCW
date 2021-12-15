@@ -853,7 +853,7 @@ class SwinIR(nn.Module):
 
 
 class UWBSwinIR(nn.Module):
-    def __init__(self):
+    def __init__(self,is_attention = True):
         super(UWBSwinIR, self).__init__()
         layers = []
         layers += [nn.ReflectionPad2d(padding=(7,7,0,0)),
@@ -861,11 +861,30 @@ class UWBSwinIR(nn.Module):
                    nn.AdaptiveAvgPool2d(output_size=(8, 50))
                    ]
         self.model = nn.Sequential(*layers)
+
+        self.is_attention = is_attention
+        self.maxPool = nn.MaxPool2d(kernel_size=(8,1))
+        self.avgPool = nn.AvgPool2d(kernel_size=(8,1))
+        attentionLayers = []
+        attentionLayers += [
+            nn.Conv2d(in_channels=2,out_channels=1,kernel_size=(1,7),stride=1,padding=(0,3)),
+            nn.Sigmoid(),
+        ]
+        self.attentionModel = nn.Sequential(*attentionLayers)
     def forward(self,x):
-        x_recon = self.model(x)
-        return x_recon
-
-
+        x_recon = self.model(x)  #(N,2,8,50)
+        if self.is_attention == True:
+            x_recon_Amp = torch.sqrt(torch.square(input=x_recon[:, 0, :, :]) + torch.square(input=x_recon[:, 1, :, :])) #(N,2,8,50) -> (N,8,50)
+            x_recon_Amp = x_recon_Amp.view(x_recon_Amp.shape[0],1,x_recon_Amp.shape[1],x_recon_Amp.shape[2])  #add the dimension of channel (N,8,50)->(N,1,8,50)
+            x_recon_Amp_avgPool = self.avgPool(x_recon_Amp)  #(N,1,8,50)->(N,1,1,50)
+            x_recon_Amp_maxPool = self.maxPool(x_recon_Amp)  #(N,1,8,50)->(N,1,1,50)
+            x_recon_Amp_Pool = torch.cat((x_recon_Amp_avgPool,x_recon_Amp_maxPool),dim=1)  #(N,1,1,50) -> (N,2,1,50)
+            x_recon_weight = self.attentionModel(x_recon_Amp_Pool) #(N,2,1,50) -> (N,1,1,50)
+            x_reconAttention = torch.mul(input=x_recon,other=x_recon_weight) #(N,2,8,50) -> (N,2,8,50)
+            x_recon_weight = torch.squeeze(x_recon_weight)  # (N,1,1,50)->(N,50)
+            return x_reconAttention,x_recon_weight
+        else:
+            return x_recon
 
 if __name__ == '__main__':
     upscale = 4

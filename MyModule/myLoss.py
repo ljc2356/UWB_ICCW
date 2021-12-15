@@ -13,7 +13,7 @@ def pdoaLoss(X,Y,lossFun = torch.nn.MSELoss().to(torch.device("cpu"))):
 
     yPhase = torch.atan2(input=Y[:,1,:,:],other=(Y[:,0,:,:]))
     yPDOA = yPhase - yPhase[:,0,:].view(-1,1,50)    #here should wrapToPi and lossfunc should replace
-    xyDiff = wrapToPi(xPDOA[:,:,0:10] - yPDOA[:,:,0:10])  #focus on first ten
+    xyDiff = wrapToPi(xPDOA[:,:,0:20] - yPDOA[:,:,0:20])  #focus on first ten
     zeroMat = torch.zeros(size=xyDiff.shape).to(xyDiff.device)
     return lossFun(xyDiff,zeroMat)
 

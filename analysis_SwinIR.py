@@ -14,9 +14,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 #%% init paremeters
 dataset_folders = '../DataBase/20210820_ICCW/'
-modelPath =  './resultModel/V2_1213/'
+modelPath =  './resultModel/V2.1_1214/'
 modelFileName = "EncDec.pth"
-
+is_attention = True
 device = torch.device("cpu")
 MSELossFun = torch.nn.MSELoss().to(device)
 
@@ -32,13 +32,16 @@ labelAngleFromData = testset[:,2,1,50].reshape(-1,1)   #data is clean
     # init dataloader
 dataloader_test = DataLoader(
     dataset=UWBDataset(dataX_test,dataY_test),
-    batch_size= 100,
+    batch_size= 2000,
     shuffle = False,
     num_workers=1
 )
 
 #%% init Model
-EncDec = UWBSwinIR().to(device)
+if is_attention == True:
+    EncDec = UWBSwinIR(is_attention=True).to(device)
+else:
+    EncDec = UWBSwinIR(is_attention=False).to(device)
 
     #load from history
 EncDec.load_state_dict(torch.load(os.path.join(modelPath,modelFileName),map_location=torch.device('cpu')))
@@ -51,30 +54,50 @@ with torch.no_grad():
     oriAngleFromMUSIC = np.empty([0, 1])
     labelAngleFromMUSIC = np.empty([0, 1])
     reconAngleFromMUSIC = np.empty([0, 1])
+    reconCSITestWeight  = np.empty([0,50])
+    reconAngleFromMUSICWeight = np.empty([0,1])
     # dataloader_test_iter = dataloader_test.__iter__()
     # oriCSITestBatch, labelCSITestBatch = next(dataloader_test_iter)
-
     for oriCSITestBatch,labelCSITestBatch in dataloader_test:
 
         if torch.cuda.is_available():
             oriCSITestBatch = oriCSITestBatch.cuda()
             labelCSITestBatch = labelCSITestBatch.cuda()
         #testing
-        reconCSITestBatch = EncDec(oriCSITestBatch)
+        if is_attention == True:
+            reconCSITestBatch, reconCSITestBatchWight = EncDec(oriCSITestBatch)
+        else:
+            reconCSITestBatch = EncDec(oriCSITestBatch)
+
         ## test Angle
-        oriAngleFromMUSIC = np.vstack((oriAngleFromMUSIC,(MUSIC(oriCSITestBatch)).reshape(-1,1)))
-        labelAngleFromMUSIC = np.vstack((labelAngleFromMUSIC,(MUSIC(labelCSITestBatch)).reshape(-1,1)))
-        reconAngleFromMUSIC = np.vstack((reconAngleFromMUSIC,(MUSIC(reconCSITestBatch)).reshape(-1,1)))
+        if is_attention == True:
+            #save weight
+            reconCSITestWeight = np.vstack((reconCSITestWeight,reconCSITestBatchWight.detach().numpy()))
+            oriAngleFromMUSIC = np.vstack((oriAngleFromMUSIC,(MUSIC(oriCSITestBatch)).reshape(-1,1)))
+            labelAngleFromMUSIC = np.vstack((labelAngleFromMUSIC,(MUSIC(labelCSITestBatch)).reshape(-1,1)))
+            reconAngleFromMUSICWeight = np.vstack((reconAngleFromMUSICWeight,(MUSIC(reconCSITestBatch,Weight=reconCSITestBatchWight)).reshape(-1,1)))
+            reconAngleFromMUSIC = np.vstack((reconAngleFromMUSIC, (MUSIC(reconCSITestBatch)).reshape(-1, 1)))
+        else:
+            oriAngleFromMUSIC = np.vstack((oriAngleFromMUSIC,(MUSIC(oriCSITestBatch)).reshape(-1,1)))
+            labelAngleFromMUSIC = np.vstack((labelAngleFromMUSIC,(MUSIC(labelCSITestBatch)).reshape(-1,1)))
+            reconAngleFromMUSIC = np.vstack((reconAngleFromMUSIC,(MUSIC(reconCSITestBatch)).reshape(-1,1)))
         #print iter
         testBatchIndex = testBatchIndex + 1
         print(testBatchIndex)
+
     meanLossOri = np.mean(np.abs(wrapToPi(oriAngleFromMUSIC - labelAngleFromData)))
     meanLossRecon = np.mean(np.abs(wrapToPi(reconAngleFromMUSIC - labelAngleFromData)))
     meanLossLabel = np.mean(np.abs(wrapToPi(labelAngleFromMUSIC- labelAngleFromData)))
+
     print("meanLossOri : {}".format(meanLossOri))
     print("meanLossRecon : {}".format(meanLossRecon))
     print("meanLossLabel : {}".format(meanLossLabel))
 
+    if is_attention == True:
+        meanCSIWeight = np.mean(reconCSITestWeight,axis=0)
+        meanLossReconWeight = np.mean(np.abs(wrapToPi(reconAngleFromMUSICWeight - labelAngleFromData)))
+        print("meanWeight : {}".format(meanCSIWeight))
+        print("meanLossReconWeight : {}".format(meanLossReconWeight))
 
 
 
