@@ -47,7 +47,7 @@ def MUSIC(CSI,Weight = None,fc = 3.9936e+9,c = 299792458,radius = 0.0732,low_thr
     npCSI = np.array(realCSI + 1j * imagCSI)   #clear
     R = np.array(np.zeros(shape=(npCSI.shape[0],8,8)),dtype='complex64')
     estAngle = np.zeros((npCSI.shape[0]))
-    maxPath = 30
+    maxPath = 20
 
     if Weight == None:  #if Weight equals None,no attention
         flagIndex = np.zeros(shape=(npCSI.shape[0],50))

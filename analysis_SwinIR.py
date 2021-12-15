@@ -32,7 +32,7 @@ labelAngleFromData = testset[:,2,1,50].reshape(-1,1)   #data is clean
     # init dataloader
 dataloader_test = DataLoader(
     dataset=UWBDataset(dataX_test,dataY_test),
-    batch_size= 2000,
+    batch_size= 200,
     shuffle = False,
     num_workers=1
 )

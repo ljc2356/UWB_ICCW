@@ -17,4 +17,12 @@ def pdoaLoss(X,Y,lossFun = torch.nn.MSELoss().to(torch.device("cpu"))):
     zeroMat = torch.zeros(size=xyDiff.shape).to(xyDiff.device)
     return lossFun(xyDiff,zeroMat)
 
+def pdoaItemLoss(X,PDOA,lossFun = torch.nn.MSELoss().to(torch.device("cpu"))):
+    xPhase = torch.atan2(input=X[:,1,:,:],other=X[:,0,:,:])
+    xPDOA = xPhase - xPhase[:,0,:].view(-1,1,50)
+
+    xyDiff = wrapToPi(xPDOA[:,:,0:20] - PDOA.view(PDOA.shape[0],8,1))
+    zeroMat = torch.zeros(size=xyDiff.shape).to(xyDiff.device)
+    return lossFun(xyDiff,zeroMat)
+
 
