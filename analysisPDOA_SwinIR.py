@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #%% init paremeters
 dataset_folders = '../DataBase/20210820_ICCW/'
-modelPath =  './resultModel/V2.2_1215/'
+modelPath = './resultModel/V2.3_1215/'
 modelFileName = "EncDec.pth"
 is_attention = True
 device = torch.device("cpu")

@@ -14,9 +14,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 #%% init paremeters
 dataset_folders = '../DataBase/20210820_ICCW/'
-modelPath =  './resultModel/V2.2_1215/'
+modelPath =  './resultModel/V2.3_1215/'
 modelFileName = "EncDec.pth"
-writer = SummaryWriter(log_dir="./logs/V2.2_1215")
+writer = SummaryWriter(log_dir="./logs/V2.3_1215")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 is_attention = True
 LossFun = torch.nn.L1Loss().to(device)
@@ -42,14 +42,14 @@ dataY_test = testset[:,2,:,51]
     # init dataloader
 dataloader_train = DataLoader(
     dataset=UWBPDOADataset(dataX_train,dataY_train),
-    batch_size = 100,
+    batch_size = 128,
     shuffle = True,
     num_workers= 500
 )
 
 dataloader_test = DataLoader(
     dataset=UWBPDOADataset(dataX_test,dataY_test),
-    batch_size= 100,
+    batch_size= 128,
     shuffle = False,
     num_workers=1
 )
@@ -62,7 +62,7 @@ else:
 
 
 #     # load from history
-# EncDec.load_state_dict(torch.load(os.path.join(modelPath,modelFileName)))
+EncDec.load_state_dict(torch.load(os.path.join(modelPath,modelFileName)))
 
 optimizer = torch.optim.Adam(
     params = EncDec.parameters(),
@@ -91,7 +91,7 @@ for epoch in range(num_epochs):
 
         #compute loss
         loss2Self = amplitudeLoss(reconCSIBatch,oriCSIBatch,LossFun)
-        loss2Label = pdoaItemLoss(reconCSIBatch,labelPDOABatch,LossFun)
+        loss2Label = pdoaItemLoss(reconCSIBatch,labelPDOABatch,Weight=reconCSIBatchWeight,lossFun=LossFun)
         # loss = loss2Self + loss2Label
         loss = loss2Self + loss2Label
         lossSumBatchs = lossSumBatchs + loss.item()
@@ -115,6 +115,7 @@ for epoch in range(num_epochs):
     with torch.no_grad():
         testBatchIndex = 0
         lossSumTestBatchs = 0
+        # oriCSITestBatch, labelPDOATestBatch = next(dataloader_test.__iter__())
         for oriCSITestBatch,labelPDOATestBatch in dataloader_test:
             if torch.cuda.is_available():
                 oriCSITestBatch = oriCSITestBatch.cuda()
@@ -128,7 +129,7 @@ for epoch in range(num_epochs):
 
             #compute test loss
             loss2SelfTest = amplitudeLoss(reconCSITestBatch,oriCSITestBatch,LossFun)
-            loss2LabelTest = pdoaItemLoss(reconCSITestBatch,labelPDOATestBatch,LossFun)
+            loss2LabelTest = pdoaItemLoss(reconCSITestBatch,labelPDOATestBatch,Weight=reconCSITestBatchWeight,lossFun=LossFun)
             lossTest = loss2SelfTest + loss2LabelTest
             lossSumTestBatchs = lossSumTestBatchs + lossTest.item()
             print("Testing epochs: {}, batchs: {}, loss2Self: {}, loss2Label: {}, loss: {}".format(

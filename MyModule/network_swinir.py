@@ -867,8 +867,8 @@ class UWBSwinIR(nn.Module):
         self.avgPool = nn.AvgPool2d(kernel_size=(8,1))
         attentionLayers = []
         attentionLayers += [
-            nn.Conv2d(in_channels=2,out_channels=1,kernel_size=(1,7),stride=1,padding=(0,3)),
-            nn.Sigmoid(),
+            nn.Conv2d(in_channels=2,out_channels=1,kernel_size=(1,7),stride=1,padding=(0,3)),  #(N,2,1,50)-> (N,1,1,50)
+            nn.Softmax(dim=3),   #(N,1,1,50) -> (N,1,1,50)
         ]
         self.attentionModel = nn.Sequential(*attentionLayers)
     def forward(self,x):
